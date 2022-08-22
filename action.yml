@@ -14,15 +14,12 @@ inputs:
   token:
     description: "Personal access token to handle the repo"
     required: true
-  script:
-    description: "The script to start the deployment"
-    required: false
-    default: "cd deploy || bash deploy.sh -e ${{ steps.extract_env.outputs.ENV }}"
 
 runs:
   using: composite
   steps:
     - name: Extract env
+      shell: bash
       run: |
         branch_name=${GITHUB_REF#refs/heads/}
         if [ "$branch_name" = "release" ]; then
@@ -35,7 +32,6 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        ref: ${{ GITHUB_REF#refs/heads/ }}
         token: ${{ inputs.token }}
 
     - name: Add profile credentials to ~/.aws/credentials
@@ -53,5 +49,7 @@ runs:
 
     - name: Call deploy script
       shell: bash
-      run: ${{ inputs.script }}
+      run: |
+        cd deploy
+        bash deploy.sh -e ${{ steps.extract_env.outputs.ENV }}
 

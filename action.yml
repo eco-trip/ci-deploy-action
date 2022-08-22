@@ -1,0 +1,57 @@
+name: ci-deploy-action
+description: "GitHub Action to setup and run the deployment script on AWS"
+
+inputs:
+  AWS_ACCESS_KEY_ID:
+    description: "AWS Access Key ID"
+    required: true
+  AWS_SECRET_ACCESS_KEY:
+    description: "AWS Secret Access Key"
+    required: true
+  AWS_REGION:
+    description: "AWS default region"
+    required: true
+  token:
+    description: "Personal access token to handle the repo"
+    required: true
+  script:
+    description: "The script to start the deployment"
+    required: false
+    default: "cd deploy || bash deploy.sh -e ${{ steps.extract_env.outputs.ENV }}"
+
+runs:
+  using: composite
+  steps:
+    - name: Extract env
+      run: |
+        branch_name=${GITHUB_REF#refs/heads/}
+        if [ "$branch_name" = "release" ]; then
+            echo "##[set-output name=ENV;]$(echo production)"
+        else
+            echo "##[set-output name=ENV;]$(echo $branch_name)"
+        fi
+      id: extract_env
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ GITHUB_REF#refs/heads/ }}
+        token: ${{ inputs.token }}
+
+    - name: Add profile credentials to ~/.aws/credentials
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+
+    - name: Install jq
+      shell: bash
+      run: sudo apt-get install jq
+
+    - name: Call deploy script
+      shell: bash
+      run: ${{ inputs.script }}
+
